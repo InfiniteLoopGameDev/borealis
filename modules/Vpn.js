@@ -116,10 +116,8 @@ export default class Vpn {
     }
 
     checkLogin() {
-        const [ok, standardOut, err, exitStatus] = this._procCom.execCommunicateSync(CMD_LOGIN);
-        return this._vpnUtils.getString(standardOut)
-            .replace(/\s+/g, ` `)
-            .includes('You are already logged in.');
+        const [ok, standardOut, err, exitStatus] = this._procCom.execCommunicateSync(CMD_VPNACCOUNT);
+        return exitStatus === 0;
     }
 
     async getStatus() {

@@ -1,5 +1,60 @@
 import VpnUtils from '../../modules/VpnUtils.js';
 
+// Vpn.js imports gi:// modules unavailable in Node, so we test checkLogin logic
+// by replicating its structure with a mocked ProcCom.  If the implementation in
+// Vpn.js diverges from this shape the test should be updated to match.
+function createVpnCheckLogin(procCom) {
+    return {
+        _procCom: procCom,
+        checkLogin() {
+            const [ok, standardOut, err, exitStatus] = this._procCom.execCommunicateSync('nordvpn account');
+            return exitStatus === 0;
+        }
+    };
+}
+
+function createTrackedProcCom(returnValue) {
+    const calls = [];
+    return {
+        execCommunicateSync(cmd) { calls.push(cmd); return returnValue; },
+        calls
+    };
+}
+
+describe('checkLogin', () => {
+    it('should return true when nordvpn account exits with 0 (logged in)', () => {
+        const mockProcCom = createTrackedProcCom([
+            true,
+            'Account Information:\nEmail Address: user@example.com\nVPN Service: Active\n',
+            '',
+            0
+        ]);
+        const vpn = createVpnCheckLogin(mockProcCom);
+        expect(vpn.checkLogin()).toBe(true);
+        expect(mockProcCom.calls).toContain('nordvpn account');
+    });
+
+    it('should return false when nordvpn account exits with 1 (logged out)', () => {
+        const mockProcCom = createTrackedProcCom([
+            false,
+            "You're not logged in.\n",
+            '',
+            1
+        ]);
+        const vpn = createVpnCheckLogin(mockProcCom);
+        expect(vpn.checkLogin()).toBe(false);
+        expect(mockProcCom.calls).toContain('nordvpn account');
+    });
+
+    it('should use nordvpn account command, not nordvpn login', () => {
+        const mockProcCom = createTrackedProcCom([true, '', '', 0]);
+        const vpn = createVpnCheckLogin(mockProcCom);
+        vpn.checkLogin();
+        expect(mockProcCom.calls).not.toContain('nordvpn login');
+        expect(mockProcCom.calls).toContain('nordvpn account');
+    });
+});
+
 describe('VpnUtils', () => {
     let vpnUtils;
 
